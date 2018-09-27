@@ -22,12 +22,13 @@ class BaseVisdomLogger(Logger):
     def viz(self):
         return self._viz
 
-    def __init__(self, fields=None, win=None, env=None, opts={}, port=8097, server="localhost"):
+    def __init__(self, fields=None, win=None, env=None, opts={}, port=8097, server="localhost",
+                 vis_obj = None):
         super(BaseVisdomLogger, self).__init__(fields)
         self.win = win
         self.env = env
         self.opts = opts
-        self._viz = visdom.Visdom(server="http://" + server, port=port)
+        self._viz = vis_obj if vis_obj is not None else visdom.Visdom(server="http://" + server, port=port)
 
     def log(self, *args, **kwargs):
         raise NotImplementedError(
@@ -79,7 +80,8 @@ class VisdomLogger(BaseVisdomLogger):
         A generic Visdom class that works with the majority of Visdom plot types.
     '''
 
-    def __init__(self, plot_type, fields=None, win=None, env=None, opts={}, port=8097, server="localhost"):
+    def __init__(self, plot_type, fields=None, win=None, env=None, opts={}, port=8097,
+                 server="localhost", **kwargs):
         '''
             Args:
                 fields: Currently unused
@@ -96,7 +98,7 @@ class VisdomLogger(BaseVisdomLogger):
                 >>> hist_logger = VisdomLogger('histogram', , opts=dict(title='Random!', numbins=20))
                 >>> hist_logger.log(hist_data)
         '''
-        super(VisdomLogger, self).__init__(fields, win, env, opts, port, server)
+        super(VisdomLogger, self).__init__(fields, win, env, opts, port, server, **kwargs)
         self.plot_type = plot_type
         self.chart = getattr(self.viz, plot_type)
         self.viz_logger = self._viz_prototype(self.chart)
@@ -107,7 +109,8 @@ class VisdomLogger(BaseVisdomLogger):
 
 class VisdomPlotLogger(BaseVisdomLogger):
 
-    def __init__(self, plot_type, fields=None, win=None, env=None, opts={}, port=8097, server="localhost", name=None):
+    def __init__(self, plot_type, fields=None, win=None, env=None, opts={}, port=8097,
+                 server="localhost", name=None, **kwargs):
         '''
             Multiple lines can be added to the same plot with the "name" attribute (see example)
             Args:
@@ -119,7 +122,7 @@ class VisdomPlotLogger(BaseVisdomLogger):
                 >>> scatter_logger.log(stats['epoch'], loss_meter.value()[0], name="train")
                 >>> scatter_logger.log(stats['epoch'], loss_meter.value()[0], name="test")
         '''
-        super(VisdomPlotLogger, self).__init__(fields, win, env, opts, port, server)
+        super(VisdomPlotLogger, self).__init__(fields, win, env, opts, port, server, **kwargs)
         valid_plot_types = {
             "scatter": self.viz.scatter,
             "line": self.viz.line}
@@ -150,6 +153,7 @@ class VisdomPlotLogger(BaseVisdomLogger):
             else:
                 chart_args = {'X': np.array([args[0]]),
                               'Y': np.array([args[1]])}
+            chart_args.update(kwargs)
             self.win = self.chart(
                 win=self.win,
                 env=self.env,
@@ -182,9 +186,9 @@ class VisdomTextLogger(BaseVisdomLogger):
     valid_update_types = ['REPLACE', 'APPEND']
 
     def __init__(self, fields=None, win=None, env=None, opts={}, update_type=valid_update_types[0],
-                 port=8097, server="localhost"):
+                 port=8097, server="localhost", **kwargs):
 
-        super(VisdomTextLogger, self).__init__(fields, win, env, opts, port, server)
+        super(VisdomTextLogger, self).__init__(fields, win, env, opts, port, server, **kwargs)
         self.text = ''
 
         if update_type not in self.valid_update_types:
